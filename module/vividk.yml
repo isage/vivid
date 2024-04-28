@@ -1,0 +1,23 @@
+vividk:
+  attributes: 0
+  version:
+    major: 1
+    minor: 0
+  main:
+    start: module_start
+    stop: module_stop
+  libraries:
+    vividkForUser:
+      syscall: true
+      functions:
+        - vividStart
+        - vividStop
+        - vividUsbAttached
+        - vividPreventSleep
+        - vividUpdateL2
+        - vividUpdateR2
+        - vividUpdateL3
+        - vividUpdateR3
+        - vividScreenOn
+        - vividScreenOff
+        - vividLedMask

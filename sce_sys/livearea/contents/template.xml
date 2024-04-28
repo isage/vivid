@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<livearea style="a1" format-ver="01.00">
+    <livearea-background>
+        <image>bg.png</image>
+    </livearea-background>
+    <gate>
+        <startup-image>startup.png</startup-image>
+    </gate>
+
+    <frame id="frame3" multi="o" autoflip="0" >
+        <liveitem>
+            <text origin="background" line-align="center" margin-bottom="1">
+                <str size="50" bold="on" shadow="on">ViViD</str>
+            </text>
+        </liveitem>
+    </frame>
+</livearea>
