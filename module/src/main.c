@@ -125,8 +125,7 @@ static int sendHidF2Report(uint8_t report_id) // set operational
      0xff, 0xff, 0x00,
      0x00, 0x06, 0xf5, 0xd7, 0x8b, 0x5d, // model?
      0x00,
-     0x03, 0x50, 0x81, 0xd8, 0x01, 0x8b};             // device mac
-//     0x00};
+     0x03, 0x50, 0x81, 0xd8, 0x01, 0x8b}; // device mac
 
   f2_reply[11] = g_my_mac[0];
   f2_reply[12] = g_my_mac[1];
@@ -359,7 +358,7 @@ static int sendHidReport()
 
   ksceCtrlPeekBufferPositive(0, &pad, 1);
   fillGamepadReport(&pad, &gamepad);
-  ksceKernelCpuDcacheAndL2WritebackRange(&gamepad, sizeof(gamepad));
+  ksceKernelDcacheCleanRange(&gamepad, sizeof(gamepad));
 
   static SceUdcdDeviceRequest req = {.endpoint         = &endpoints[1],
                                      .data             = &gamepad,
@@ -805,10 +804,23 @@ uint8_t vividLedMask()
 void _start() __attribute__((weak, alias("module_start")));
 
 uint ksceBtGetStatusForTest(int type, void *data, int size);
+
 int module_start(SceSize argc, const void *args)
 {
-  g_is_oled = (ksceKernelSearchModuleByName("SceOled") >= 0);
-  g_is_lcd  = (ksceKernelSearchModuleByName("SceLcd") >= 0);
+  if (ksceKernelSearchModuleByName("SceLcd") >= 0)
+  {
+    g_is_lcd = 1;
+  }
+  else
+  {
+    if (ksceKernelSearchModuleByName("SceOled") >= 0)
+    {
+        g_is_oled = 1;
+    }
+  }
+
+  ksceKernelPrintf("is_lcd: %d\n", g_is_lcd);
+  ksceKernelPrintf("is_oled: %d\n", g_is_oled);
 
   g_usb_thread_id = ksceKernelCreateThread("VITAPAD_USB_THREAD", vividUsbThread, 0x3C, 0x1000, 0, 0x10000, 0);
   g_event_flag_id = ksceKernelCreateEventFlag("VIVID_EF", 0, 0, NULL);
