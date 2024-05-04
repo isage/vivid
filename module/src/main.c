@@ -702,13 +702,23 @@ void stopUsbDrivers()
   ksceUdcdStop("USBDeviceControllerDriver", 0, NULL);
 }
 
+// exports
+
 void vividPreventSleep()
 {
+  uint32_t state;
+  ENTER_SYSCALL(state);
+
   ksceKernelPowerTick(SCE_KERNEL_POWER_TICK_DEFAULT);
+
+  EXIT_SYSCALL(state);
 }
 
 void vividStart(void)
 {
+  uint32_t state;
+  ENTER_SYSCALL(state);
+
   g_exit_thread  = 0;
   g_usb_attached = 2;
 
@@ -723,10 +733,15 @@ void vividStart(void)
   ksceUdcdActivate(USB_PID);
 
   ksceKernelClearEventFlag(g_event_flag_id, ~EVF_ALL_MASK);
+
+  EXIT_SYSCALL(state);
 }
 
 void vividStop(void)
 {
+  uint32_t state;
+  ENTER_SYSCALL(state);
+
   g_exit_thread = 1;
 
   ksceKernelClearEventFlag(g_event_flag_id, EVF_ALL_MASK);
@@ -739,32 +754,57 @@ void vividStop(void)
   ksceUdcdStart("USBDeviceControllerDriver", 0, NULL);
   ksceUdcdStart("USB_MTP_Driver", 0, NULL);
   ksceUdcdActivate(0x4E4);
+
+  EXIT_SYSCALL(state);
 }
 
 void vividUpdateL2(uint8_t pressed, uint8_t value)
 {
+  uint32_t state;
+  ENTER_SYSCALL(state);
+
   g_l2_pressed = pressed;
   g_l2_value   = value;
+
+  EXIT_SYSCALL(state);
 }
 
 void vividUpdateR2(uint8_t pressed, uint8_t value)
 {
+  uint32_t state;
+  ENTER_SYSCALL(state);
+
   g_r2_pressed = pressed;
   g_r2_value   = value;
+
+  EXIT_SYSCALL(state);
 }
 
 void vividUpdateL3(uint8_t pressed)
 {
+  uint32_t state;
+  ENTER_SYSCALL(state);
+
   g_l3_pressed = pressed;
+
+  EXIT_SYSCALL(state);
 }
 
 void vividUpdateR3(uint8_t pressed)
 {
+  uint32_t state;
+  ENTER_SYSCALL(state);
+
   g_r3_pressed = pressed;
+
+  EXIT_SYSCALL(state);
 }
 
 void vividScreenOn()
 {
+  uint32_t state;
+  ENTER_SYSCALL(state);
+
   if (g_is_oled)
   {
     ksceOledDisplayOn();
@@ -775,10 +815,15 @@ void vividScreenOn()
     ksceLcdDisplayOn();
     ksceLcdSetBrightness(g_prev_brightness);
   }
+
+  EXIT_SYSCALL(state);
 }
 
 void vividScreenOff()
 {
+  uint32_t state;
+  ENTER_SYSCALL(state);
+
   if (g_is_oled)
   {
     g_prev_brightness = ksceOledGetBrightness();
@@ -789,6 +834,8 @@ void vividScreenOff()
     g_prev_brightness = ksceLcdGetBrightness();
     ksceLcdDisplayOff();
   }
+
+  EXIT_SYSCALL(state);
 }
 
 int vividUsbAttached()
@@ -811,12 +858,9 @@ int module_start(SceSize argc, const void *args)
   {
     g_is_lcd = 1;
   }
-  else
+  else if (ksceKernelSearchModuleByName("SceOled") >= 0)
   {
-    if (ksceKernelSearchModuleByName("SceOled") >= 0)
-    {
-        g_is_oled = 1;
-    }
+    g_is_oled = 1;
   }
 
   ksceKernelPrintf("is_lcd: %d\n", g_is_lcd);

@@ -145,15 +145,15 @@ void stopPad()
 
 void toggleScreen()
 {
-  sceClibPrintf("toggle screen!\n");
-  g_screen_off = !g_screen_off;
   if (g_screen_off)
   {
-    vividScreenOff();
+    vividScreenOn();
+    g_screen_off = 0;
   }
   else
   {
-    vividScreenOn();
+    vividScreenOff();
+    g_screen_off = 1;
   }
 }
 

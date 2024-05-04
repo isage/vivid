@@ -22,3 +22,7 @@ MIT, see LICENSE.md
 ## Credits
 
 * [xerpi](https://github.com/xerpi) - for vitapad and udcd work
+
+## Testers
+* Paddel06
+* Null
