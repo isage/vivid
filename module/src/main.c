@@ -126,12 +126,12 @@ static int sendHid01Report(uint8_t report_id)
 
 static int sendHidF2Report(uint8_t report_id) // set operational
 {
-  static uint8_t f2_reply[17] __attribute__((aligned(64)))
+  static uint8_t f2_reply[18] __attribute__((aligned(64)))
   = {0xf2,                                                 // report num
      0xff, 0xff, 0x00,
      0x00, 0x06, 0xf5, 0xd7, 0x8b, 0x5d, // model?
      0x00,
-     0x03, 0x50, 0x81, 0xd8, 0x01, 0x8b}; // device mac
+     0x03, 0x50, 0x81, 0xd8, 0x01, 0x8b, 0x00}; // device mac
 
   f2_reply[11] = g_my_mac[0];
   f2_reply[12] = g_my_mac[1];
@@ -142,7 +142,7 @@ static int sendHidF2Report(uint8_t report_id) // set operational
 
   static SceUdcdDeviceRequest req = {.endpoint         = &endpoints[0],
                                      .data             = f2_reply,
-                                     .size             = 17,
+                                     .size             = 18,
                                      .isControlRequest = 0,
                                      .onComplete       = NULL,
                                      .transmitted      = 0,

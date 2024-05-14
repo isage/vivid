@@ -8,7 +8,7 @@ extern "C"
 {
 #endif
 
-  #define VIVID_MODULE_API 2
+  #define VIVID_MODULE_API 3
 
   void vividStart(void);
   void vividStop(void);
