@@ -11,6 +11,7 @@
 #include <psp2kern/kernel/sysmem.h>
 #include <psp2kern/kernel/threadmgr.h>
 #include <psp2kern/udcd.h>
+#include <psp2kern/bt.h>
 #include <stdio.h>
 #include <string.h>
 #include <taihen.h>
@@ -43,6 +44,11 @@ static uint8_t g_r3_pressed;
 static uint8_t g_led_mask    = 0;
 static uint8_t g_my_mac[6]   = {0};
 static uint8_t g_host_mac[6] = {0};
+
+static uint16_t g_acc_x = 0;
+static uint16_t g_acc_y = 0;
+static uint16_t g_acc_z = 0;
+static uint16_t g_gyro_z = 0;
 
 static int g_prev_brightness;
 
@@ -347,7 +353,12 @@ static void fillGamepadReport(const SceCtrlData *pad, gamepad_report_t *gamepad)
   gamepad->right_x = pad->rx;
   gamepad->right_y = pad->ry;
 
-  // todo: gyro/acc
+  // gyro/acc
+  gamepad->acc_x = g_acc_x;
+  gamepad->acc_y = g_acc_y;
+  gamepad->acc_z = g_acc_z;
+  gamepad->rot = g_gyro_z;
+
   // todo: battery
 }
 
@@ -391,6 +402,7 @@ void usb_ep0_req_recv_on_complete(SceUdcdDeviceRequest *req)
   switch (wValue)
   {
     case 0x03F4: // set operating mode
+      
       break;
     case 0x03F5: // set host mac. e.g. 0x01 0x00 0xF8 0x2F 0xA8 0x68 0x9D 0xCB
       g_host_mac[0] = data[2];
@@ -800,6 +812,29 @@ void vividUpdateR3(uint8_t pressed)
   EXIT_SYSCALL(state);
 }
 
+void vividUpdateAcc(uint16_t x, uint16_t y, uint16_t z)
+{
+  uint32_t state;
+  ENTER_SYSCALL(state);
+
+  g_acc_x = x;
+  g_acc_y = y;
+  g_acc_z = z;
+
+  EXIT_SYSCALL(state);
+}
+
+void vividUpdateGyro(uint16_t z)
+{
+  uint32_t state;
+  ENTER_SYSCALL(state);
+
+  g_gyro_z = z;
+
+  EXIT_SYSCALL(state);
+}
+
+
 void vividScreenOn()
 {
   uint32_t state;
@@ -848,9 +883,14 @@ uint8_t vividLedMask()
   return g_led_mask;
 }
 
+uint8_t vividVersion()
+{
+  return VIVID_MODULE_API;
+}
+
 void _start() __attribute__((weak, alias("module_start")));
 
-uint ksceBtGetStatusForTest(int type, void *data, int size);
+//uint ksceBtGetStatusForTest(int type, void *data, int size);
 
 int module_start(SceSize argc, const void *args)
 {

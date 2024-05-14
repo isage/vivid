@@ -45,6 +45,11 @@ typedef struct
 
 static shoulders buttons[4] = {0};
 
+static float gz = 0.0f;
+static float ax = 0.0f;
+static float ay = 0.0f;
+static float az = 0.0f;
+
 void saveSystemClocks()
 {
   g_arm_clock  = scePowerGetArmClockFrequency();
@@ -163,6 +168,9 @@ void updateInput()
   vividUpdateR2(buttons[B_R2].pressed, buttons[B_R2].value);
   vividUpdateL3(buttons[B_L3].pressed);
   vividUpdateR3(buttons[B_R3].pressed);
+
+  vividUpdateAcc((uint16_t)(511.0f - (ax/SDL_STANDARD_GRAVITY*113.)), (uint16_t)(511.0f-(ay/SDL_STANDARD_GRAVITY*113.)), (uint16_t)(511.0f+(az/SDL_STANDARD_GRAVITY*113.)));
+  vividUpdateGyro((uint16_t)(4.0f - (roundf(gz) / 7.0f)));
 }
 
 void pollInput()
@@ -275,6 +283,24 @@ void pollInput()
           }
         }
         break;
+        case SDL_SENSORUPDATE:
+            {
+                SDL_Sensor *sensor = SDL_SensorFromInstanceID(event.sensor.which);
+                switch (SDL_SensorGetType(sensor)) {
+                    case SDL_SENSOR_ACCEL:
+                        ax = event.sensor.data[0];
+                        ay = event.sensor.data[1];
+                        az = event.sensor.data[2];
+                        break;
+                    case SDL_SENSOR_GYRO:
+                        gz = event.sensor.data[2];
+                        break;
+                    default:
+                        break;
+                }
+            }
+            break;
+
       default:
         break;
     }
@@ -337,8 +363,15 @@ int main(int argc, char *argv[])
     sceAppMgrLoadExec("app0:eboot.bin", NULL, NULL);
   }
 
+  if (vividVersion() != VIVID_MODULE_API)
+  {
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Wrong module version", "Wrong module version detected. Please reboot your console", g_window);
+    return -1;
+  }
+
   if (init() < 0)
     return 0;
+
 
   while (1)
   {

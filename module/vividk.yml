@@ -21,3 +21,6 @@ vividk:
         - vividScreenOn
         - vividScreenOff
         - vividLedMask
+        - vividUpdateAcc
+        - vividUpdateGyro
+        - vividVersion
