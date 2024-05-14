@@ -124,7 +124,7 @@ static int sendHid01Report(uint8_t report_id)
   return ksceUdcdReqSend(&req);
 }
 
-static int sendHidF2Report(uint8_t report_id) // set operational
+static int sendHidF2Report(uint8_t report_id, uint16_t length) // set operational
 {
   static uint8_t f2_reply[18] __attribute__((aligned(64)))
   = {0xf2,                                                 // report num
@@ -150,6 +150,8 @@ static int sendHidF2Report(uint8_t report_id) // set operational
                                      .next             = NULL,
                                      .unused           = NULL,
                                      .physicalAddress  = NULL};
+
+  req.size = length;
 
   return ksceUdcdReqSend(&req);
 }
@@ -544,7 +546,7 @@ static int processUdcdRequest(int recipient, int arg, SceUdcdEP0DeviceRequest *r
                       break;
 
                     case 0xF2: // device address
-                      sendHidF2Report(report_id);
+                      sendHidF2Report(report_id, req->wLength);
                       break;
 
                     case 0xF4: // start device? switch to bt?
