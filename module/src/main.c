@@ -128,17 +128,18 @@ static int sendHidF2Report(uint8_t report_id, uint16_t length) // set operationa
 {
   static uint8_t f2_reply[18] __attribute__((aligned(64)))
   = {0xf2,                                                 // report num
-     0xff, 0xff, 0x00,
-     0x00, 0x06, 0xf5, 0xd7, 0x8b, 0x5d, // model?
+     0xff, 0xff,
      0x00,
-     0x03, 0x50, 0x81, 0xd8, 0x01, 0x8b, 0x00}; // device mac
+     0x00, 0x06, 0xf5, 0xd7, 0x8b, 0x5d, // mac
+     0x00,
+     0x03, 0x50, 0x81, 0xd8, 0x01, 0x8b, 0x00}; // model? host mac?
 
-  f2_reply[11] = g_my_mac[0];
-  f2_reply[12] = g_my_mac[1];
-  f2_reply[13] = g_my_mac[2];
-  f2_reply[14] = g_my_mac[3];
-  f2_reply[15] = g_my_mac[4];
-  f2_reply[16] = g_my_mac[5];
+  f2_reply[4] = g_my_mac[0];
+  f2_reply[5] = g_my_mac[1];
+  f2_reply[6] = g_my_mac[2];
+  f2_reply[7] = g_my_mac[3];
+  f2_reply[8] = g_my_mac[4];
+  f2_reply[9] = g_my_mac[5];
 
   static SceUdcdDeviceRequest req = {.endpoint         = &endpoints[0],
                                      .data             = f2_reply,
@@ -461,7 +462,7 @@ static int processUdcdRequest(int recipient, int arg, SceUdcdEP0DeviceRequest *r
   uint8_t req_type      = req->bmRequestType & USB_CTRLTYPE_TYPE_MASK;
   uint8_t req_recipient = req->bmRequestType & USB_CTRLTYPE_REC_MASK;
 
-//  ksceKernelPrintf("got request: dir: 0x%02x, type: 0x%02x, recp: 0x%02x, wValue: 0x%04x\n", req_dir, req_type, req_recipient, req->wValue);
+//  ksceKernelPrintf("got request: dir: 0x%02x, type: 0x%02x, recp: 0x%02x, wValue: 0x%04x, wLength: 0x%04x\n", req_dir, req_type, req_recipient, req->wValue, req->wLength);
 
   // TODO: untangle this shit
   if (req_dir == USB_CTRLTYPE_DIR_DEVICE2HOST)
