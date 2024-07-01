@@ -715,6 +715,7 @@ void stopUsbDrivers()
   ksceUdcdStop("USBPSPCommunicationDriver", 0, NULL);
   ksceUdcdStop("USBSerDriver", 0, NULL);
   ksceUdcdStop("USBDeviceControllerDriver", 0, NULL);
+  ksceUdcdStopCurrentInternal(2);
 }
 
 // exports
