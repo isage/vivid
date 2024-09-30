@@ -771,6 +771,8 @@ void vividStop(void)
   ksceUdcdStart("USB_MTP_Driver", 0, NULL);
   ksceUdcdActivate(0x4E4);
 
+  g_led_mask    = 0;
+
   EXIT_SYSCALL(state);
 }
 
@@ -838,7 +840,6 @@ void vividUpdateGyro(uint16_t z)
   EXIT_SYSCALL(state);
 }
 
-
 void vividScreenOn()
 {
   uint32_t state;
@@ -865,12 +866,12 @@ void vividScreenOff()
 
   if (g_is_oled)
   {
-    g_prev_brightness = ksceOledGetBrightness();
+//    g_prev_brightness = ksceOledGetBrightness();
     ksceOledDisplayOff();
   }
   else if (g_is_lcd)
   {
-    g_prev_brightness = ksceLcdGetBrightness();
+//    g_prev_brightness = ksceLcdGetBrightness();
     ksceLcdDisplayOff();
   }
 
@@ -909,6 +910,16 @@ int module_start(SceSize argc, const void *args)
 
   ksceKernelPrintf("is_lcd: %d\n", g_is_lcd);
   ksceKernelPrintf("is_oled: %d\n", g_is_oled);
+
+  if (g_is_oled)
+  {
+    g_prev_brightness = ksceOledGetBrightness();
+  }
+  else if (g_is_lcd)
+  {
+    g_prev_brightness = ksceLcdGetBrightness();
+  }
+
 
   g_usb_thread_id = ksceKernelCreateThread("VITAPAD_USB_THREAD", vividUsbThread, 0x3C, 0x1000, 0, 0x10000, 0);
   g_event_flag_id = ksceKernelCreateEventFlag("VIVID_EF", 0, 0, NULL);
