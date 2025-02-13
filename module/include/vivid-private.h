@@ -42,8 +42,9 @@ typedef struct
   uint8_t unk27; // 27
   uint8_t unk28; // 28
 
-  uint8_t unk29;   // 29
-  uint8_t battery; // 30
+  uint8_t unk29;   // 29 // status
+
+  uint8_t battery; // 30 // power_rating
 
   uint8_t unk31[10]; // 31-40
 

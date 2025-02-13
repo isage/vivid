@@ -100,6 +100,14 @@ int init()
   if (SDL_Init(SDL_INIT_EVERYTHING) < 0)
     return -1;
 
+  for (int i = 0; i < SDL_NumSensors(); ++i)
+  {
+      if (SDL_SensorGetDeviceType(i) != SDL_SENSOR_UNKNOWN)
+      {
+          SDL_SensorOpen(i);
+      }
+  }
+
   if ((g_window
        = SDL_CreateWindow("ViViD", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 960, 544, SDL_WINDOW_SHOWN))
       == NULL)
@@ -169,8 +177,13 @@ void updateInput()
   vividUpdateL3(buttons[B_L3].pressed);
   vividUpdateR3(buttons[B_R3].pressed);
 
-  vividUpdateAcc((uint16_t)(511.0f - (ax/SDL_STANDARD_GRAVITY*113.)), (uint16_t)(511.0f-(ay/SDL_STANDARD_GRAVITY*113.)), (uint16_t)(511.0f+(az/SDL_STANDARD_GRAVITY*113.)));
-  vividUpdateGyro((uint16_t)(4.0f - (roundf(gz) / 7.0f)));
+  vividUpdateAcc(
+    ((uint16_t)(511 - (ax / SDL_STANDARD_GRAVITY * 113.f))),
+    ((uint16_t)(511 - (ay / SDL_STANDARD_GRAVITY * 113.f))),
+    ((uint16_t)(511 + (az / SDL_STANDARD_GRAVITY * 113.f)))
+  );
+
+  vividUpdateGyro(((uint16_t)(511 + (gz * 123.f))));
 }
 
 void pollInput()
@@ -213,7 +226,7 @@ void pollInput()
       case SDL_FINGERDOWN:
         if (g_mode == 1)
         {
-          if (event.tfinger.touchId == 1) // back
+          if (event.tfinger.touchId == 2) // back
           {
             if (event.tfinger.x < 0.5 && event.tfinger.y >= 0 && event.tfinger.y <= 0.3) // L2
             {

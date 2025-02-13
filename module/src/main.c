@@ -11,7 +11,7 @@
 #include <psp2kern/kernel/sysmem.h>
 #include <psp2kern/kernel/threadmgr.h>
 #include <psp2kern/udcd.h>
-#include <psp2kern/bt.h>
+//#include <psp2kern/bt.h>
 #include <stdio.h>
 #include <string.h>
 #include <taihen.h>
@@ -50,219 +50,17 @@ static uint16_t g_acc_y = 0;
 static uint16_t g_acc_z = 0;
 static uint16_t g_gyro_z = 0;
 
+static uint8_t g_high_res_gyro = 0;
+
 static int g_prev_brightness;
 
-static int sendDescHidReport(void)
-{
-  static SceUdcdDeviceRequest req = {.endpoint         = &endpoints[0],
-                                     .data             = hid_report_descriptor,
-                                     .size             = sizeof(hid_report_descriptor),
-                                     .isControlRequest = 0,
-                                     .onComplete       = NULL,
-                                     .transmitted      = 0,
-                                     .returnCode       = 0,
-                                     .next             = NULL,
-                                     .unused           = NULL,
-                                     .physicalAddress  = NULL};
-
-  return ksceUdcdReqSend(&req);
-}
-
-static int sendStringDescriptor(int index)
-{
-  static SceUdcdDeviceRequest req = {.endpoint         = &endpoints[0],
-                                     .data             = &string_descriptors[0],
-                                     .size             = sizeof(string_descriptors[0]),
-                                     .isControlRequest = 0,
-                                     .onComplete       = NULL,
-                                     .transmitted      = 0,
-                                     .returnCode       = 0,
-                                     .next             = NULL,
-                                     .unused           = NULL,
-                                     .physicalAddress  = NULL};
-
-  return ksceUdcdReqSend(&req);
-}
-
-static int sendInitialHidReport(uint8_t report_id)
-{
-  static gamepad_report_t gamepad __attribute__((aligned(64)))
-  = {.report_id = 1, .buttons1 = 0, .buttons2 = 0, .buttons3 = 0, .battery = 0xee};
-
-  static SceUdcdDeviceRequest req = {.endpoint         = &endpoints[0],
-                                     .data             = &gamepad,
-                                     .size             = sizeof(gamepad),
-                                     .isControlRequest = 0,
-                                     .onComplete       = NULL,
-                                     .transmitted      = 0,
-                                     .returnCode       = 0,
-                                     .next             = NULL,
-                                     .unused           = NULL,
-                                     .physicalAddress  = NULL};
-
-  return ksceUdcdReqSend(&req);
-}
-
-static int sendHid01Report(uint8_t report_id)
-{
-  static uint8_t r01_reply[0x32] __attribute__((aligned(64)))
-  = {0x00, 0x01, 0x04, 0x00, 0x0b, 0x0c, 0x01, 0x02, 0x18, 0x18, 0x18, 0x18, 0x09, 0x0a, 0x10, 0x11, 0x12,
-     0x13, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x02, 0x02, 0x02, 0x02, 0x00, 0x00, 0x00, 0x04, 0x04, 0x04,
-     0x04, 0x00, 0x00, 0x04, 0x00, 0x01, 0x02, 0x07, 0x00, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-
-  static SceUdcdDeviceRequest req = {.endpoint         = &endpoints[0],
-                                     .data             = r01_reply,
-                                     .size             = 0x32,
-                                     .isControlRequest = 0,
-                                     .onComplete       = NULL,
-                                     .transmitted      = 0,
-                                     .returnCode       = 0,
-                                     .next             = NULL,
-                                     .unused           = NULL,
-                                     .physicalAddress  = NULL};
-
-  return ksceUdcdReqSend(&req);
-}
-
-static int sendHidF2Report(uint8_t report_id, uint16_t length) // set operational
-{
-  static uint8_t f2_reply[18] __attribute__((aligned(64)))
-  = {0xf2,                                                 // report num
-     0xff, 0xff,
-     0x00,
-     0x00, 0x06, 0xf5, 0xd7, 0x8b, 0x5d, // mac
-     0x00,
-     0x03, 0x50, 0x81, 0xd8, 0x01, 0x8b, 0x00}; // model? host mac?
-
-  f2_reply[4] = g_my_mac[0];
-  f2_reply[5] = g_my_mac[1];
-  f2_reply[6] = g_my_mac[2];
-  f2_reply[7] = g_my_mac[3];
-  f2_reply[8] = g_my_mac[4];
-  f2_reply[9] = g_my_mac[5];
-
-  static SceUdcdDeviceRequest req = {.endpoint         = &endpoints[0],
-                                     .data             = f2_reply,
-                                     .size             = 18,
-                                     .isControlRequest = 0,
-                                     .onComplete       = NULL,
-                                     .transmitted      = 0,
-                                     .returnCode       = 0,
-                                     .next             = NULL,
-                                     .unused           = NULL,
-                                     .physicalAddress  = NULL};
-
-  req.size = length;
-
-  return ksceUdcdReqSend(&req);
-}
-
-static int sendHidF5Report(uint8_t report_id)
-{
-  // size = 8
-  static uint8_t f5_reply[8] __attribute__((aligned(64))) = {
-      0x01,                              // report num
-      0x00,
-      0x2c, 0x81, 0x58, 0x15, 0x45, 0x14 // host mac
-  };
-
-  f5_reply[2] = g_host_mac[0];
-  f5_reply[3] = g_host_mac[1];
-  f5_reply[4] = g_host_mac[2];
-  f5_reply[5] = g_host_mac[3];
-  f5_reply[6] = g_host_mac[4];
-  f5_reply[7] = g_host_mac[5];
-
-  static SceUdcdDeviceRequest req = {.endpoint         = &endpoints[0],
-                                     .data             = f5_reply,
-                                     .size             = 8,
-                                     .isControlRequest = 0,
-                                     .onComplete       = NULL,
-                                     .transmitted      = 0,
-                                     .returnCode       = 0,
-                                     .next             = NULL,
-                                     .unused           = NULL,
-                                     .physicalAddress  = NULL};
-
-  return ksceUdcdReqSend(&req);
-}
-
-static int sendHidF7Report(uint8_t report_id)
-{
-  // maybe battery level + status?
-  static uint8_t f7_reply[12] __attribute__((aligned(64)))
-  = {0x01, 0x00, 0x00, 0x03, 0x08, 0x02, 0xee, 0xff, 0x10, 0x12, 0x00, 0x03};
-
-  static SceUdcdDeviceRequest req = {.endpoint         = &endpoints[0],
-                                     .data             = f7_reply,
-                                     .size             = 12,
-                                     .isControlRequest = 0,
-                                     .onComplete       = NULL,
-                                     .transmitted      = 0,
-                                     .returnCode       = 0,
-                                     .next             = NULL,
-                                     .unused           = NULL,
-                                     .physicalAddress  = NULL};
-
-  return ksceUdcdReqSend(&req);
-}
-
-static int sendHidF8Report(uint8_t report_id)
-{
-  // size = 8
-  static uint8_t f8_reply[4] __attribute__((aligned(64))) = {0x00,
-                                                             0x02, // 01 = unpaired, 02 = paired
-                                                             0x00, 0x00};
-
-  static SceUdcdDeviceRequest req = {.endpoint         = &endpoints[0],
-                                     .data             = f8_reply,
-                                     .size             = 4,
-                                     .isControlRequest = 0,
-                                     .onComplete       = NULL,
-                                     .transmitted      = 0,
-                                     .returnCode       = 0,
-                                     .next             = NULL,
-                                     .unused           = NULL,
-                                     .physicalAddress  = NULL};
-
-  return ksceUdcdReqSend(&req);
-}
-
-static uint8_t ef_request = 0xa0;
-
-static int sendHidEFReport(uint8_t report_id)
-{
-  static uint8_t ef_reply[48] __attribute__((aligned(64)))
-  = {0x00, 0xef, 0x04, 0x00, 0x0b, 0x03, 0x01, 0xa0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-     0x00, 0x02, 0x6e, 0x02, 0x60, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-
-  ef_reply[7] = ef_request;
-
-  static SceUdcdDeviceRequest req = {.endpoint         = &endpoints[0],
-                                     .data             = ef_reply,
-                                     .size             = 48,
-                                     .isControlRequest = 0,
-                                     .onComplete       = NULL,
-                                     .transmitted      = 0,
-                                     .returnCode       = 0,
-                                     .next             = NULL,
-                                     .unused           = NULL,
-                                     .physicalAddress  = NULL};
-
-  return ksceUdcdReqSend(&req);
-}
-
-static void handleHidReportComplete(SceUdcdDeviceRequest *req)
-{
-  ksceKernelSetEventFlag(g_event_flag_id, EVF_INT_REQ_COMPLETED);
-}
 
 static void fillGamepadReport(const SceCtrlData *pad, gamepad_report_t *gamepad)
 {
 
   memset(gamepad, 0, sizeof(gamepad_report_t));
   gamepad->report_id = 1;
+
   gamepad->buttons1  = 0;
   gamepad->buttons2  = 0;
   gamepad->buttons3  = 0;
@@ -357,13 +155,305 @@ static void fillGamepadReport(const SceCtrlData *pad, gamepad_report_t *gamepad)
   gamepad->right_y = pad->ry;
 
   // gyro/acc
-  gamepad->acc_x = g_acc_x;
-  gamepad->acc_y = g_acc_y;
-  gamepad->acc_z = g_acc_z;
-  gamepad->rot = g_gyro_z;
 
-  // todo: battery
+  gamepad->unk29 = 0x03;
+
+  gamepad->unk31[0] = 0x16;
+  gamepad->unk31[1] = 0x0;
+  gamepad->unk31[2] = 0x0;
+  gamepad->unk31[3] = 0x0;
+  gamepad->unk31[4] = 0x0;
+  gamepad->unk31[5] = 0x33;
+  gamepad->unk31[6] = 0x0;
+  gamepad->unk31[7] = 0x77;
+
+  if (g_high_res_gyro)
+  {
+    gamepad->unk31[8] = 0x00;
+    gamepad->unk31[9] = 0x1c;
+  }
+  else
+  {
+    gamepad->unk31[8] = 0x01;
+    gamepad->unk31[9] = 0x9c;
+  }
+
+  gamepad->acc_x = __builtin_bswap16(g_acc_x);
+  gamepad->acc_y = __builtin_bswap16(g_acc_y);
+  gamepad->acc_z = __builtin_bswap16(g_acc_z);
+
+  // low-res = gyro / 128
+  uint16_t gyro = g_gyro_z;
+  if (!g_high_res_gyro) gyro = gyro / 128;
+  gamepad->rot = __builtin_bswap16(gyro);
+
+  // todo: battery?
 }
+
+
+
+static int sendDescHidReport(void)
+{
+  static SceUdcdDeviceRequest req = {.endpoint         = &endpoints[0],
+                                     .data             = hid_report_descriptor,
+                                     .size             = sizeof(hid_report_descriptor),
+                                     .isControlRequest = 0,
+                                     .onComplete       = NULL,
+                                     .transmitted      = 0,
+                                     .returnCode       = 0,
+                                     .next             = NULL,
+                                     .unused           = NULL,
+                                     .physicalAddress  = NULL};
+
+  return ksceUdcdReqSend(&req);
+}
+
+static int sendStringDescriptor(int index)
+{
+  static SceUdcdDeviceRequest req = {.endpoint         = &endpoints[0],
+                                     .data             = &string_descriptors[0],
+                                     .size             = sizeof(string_descriptors[0]),
+                                     .isControlRequest = 0,
+                                     .onComplete       = NULL,
+                                     .transmitted      = 0,
+                                     .returnCode       = 0,
+                                     .next             = NULL,
+                                     .unused           = NULL,
+                                     .physicalAddress  = NULL};
+
+  return ksceUdcdReqSend(&req);
+}
+
+static int sendInitialHidReport(uint8_t report_id)
+{
+  static gamepad_report_t gamepad_report __attribute__((aligned(64)))
+  = {
+    .report_id = 1,
+    .buttons1 = 0,
+    .buttons2 = 0,
+    .buttons3 = 0,
+    .battery = 0xee,
+    .acc_x = 0xFF01,
+    .acc_y = 0xFF01,
+    .acc_z = 0xFF01,
+    .rot = 0x0400
+  };
+
+  gamepad_report.unk31[0] = 0x12;
+  gamepad_report.unk31[1] = 0x0;
+  gamepad_report.unk31[2] = 0x0;
+  gamepad_report.unk31[3] = 0x0;
+  gamepad_report.unk31[4] = 0x0;
+  gamepad_report.unk31[5] = 0x12;
+  gamepad_report.unk31[6] = 0x0;
+  gamepad_report.unk31[7] = 0x77;
+  gamepad_report.unk31[8] = 0x01;
+  gamepad_report.unk31[9] = 0x9C;
+
+  SceCtrlData pad;
+
+  ksceCtrlPeekBufferPositive(0, &pad, 1);
+  fillGamepadReport(&pad, &gamepad_report);
+  ksceKernelDcacheCleanRange(&gamepad_report, sizeof(gamepad_report));
+
+
+  static SceUdcdDeviceRequest req = {.endpoint         = &endpoints[0],
+                                     .data             = &gamepad_report,
+                                     .size             = sizeof(gamepad_report),
+                                     .isControlRequest = 0,
+                                     .onComplete       = NULL,
+                                     .transmitted      = 0,
+                                     .returnCode       = 0,
+                                     .next             = NULL,
+                                     .unused           = NULL,
+                                     .physicalAddress  = NULL};
+
+  return ksceUdcdReqSend(&req);
+}
+
+static int sendHid01Report(uint8_t report_id)
+{
+
+  static uint8_t r01_reply[0x32] __attribute__((aligned(64)))
+  = {
+     0x00, 0x01, 0x04, 0x00, 0x0b, 0x0c, 0x01, 0x02, 0x18, 0x18, 0x18, 0x18, 0x09, 0x0a, 0x10, 0x11,
+     0x12, 0x13, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x02, 0x02, 0x02, 0x02, 0x00, 0x00, 0x00, 0x04,
+     0x04, 0x04, 0x04, 0x00, 0x00, 0x04, 0x00, 0x01, 0x02, 0x07, 0x00, 0x17, 0x00, 0x00, 0x00, 0x00,
+     0x00, 0x00
+  };
+
+  static SceUdcdDeviceRequest req = {.endpoint         = &endpoints[0],
+                                     .data             = r01_reply,
+                                     .size             = 0x32,
+                                     .isControlRequest = 0,
+                                     .onComplete       = NULL,
+                                     .transmitted      = 0,
+                                     .returnCode       = 0,
+                                     .next             = NULL,
+                                     .unused           = NULL,
+                                     .physicalAddress  = NULL};
+
+  return ksceUdcdReqSend(&req);
+}
+
+static int sendHidF2Report(uint8_t report_id, uint16_t length) // set operational
+{
+  static uint8_t f2_reply[18] __attribute__((aligned(64)))
+  = {0xf2,                                                 // report num
+     0xff, 0xff,
+     0x00,
+     0x00, 0x06, 0xf5, 0xd7, 0x8b, 0x5d, // mac
+     0x00,
+     0x03, 0x50, 0x81, 0xd8, 0x01, 0x8b, 0x00}; // model? host mac?
+
+  f2_reply[4] = g_my_mac[0];
+  f2_reply[5] = g_my_mac[1];
+  f2_reply[6] = g_my_mac[2];
+  f2_reply[7] = g_my_mac[3];
+  f2_reply[8] = g_my_mac[4];
+  f2_reply[9] = g_my_mac[5];
+
+  static SceUdcdDeviceRequest req = {.endpoint         = &endpoints[0],
+                                     .data             = f2_reply,
+                                     .size             = 18,
+                                     .isControlRequest = 0,
+                                     .onComplete       = NULL,
+                                     .transmitted      = 0,
+                                     .returnCode       = 0,
+                                     .next             = NULL,
+                                     .unused           = NULL,
+                                     .physicalAddress  = NULL};
+
+  req.size = length;
+
+  return ksceUdcdReqSend(&req);
+}
+
+static int sendHidF5Report(uint8_t report_id)
+{
+  // size = 8
+  static uint8_t f5_reply[8] __attribute__((aligned(64))) = {
+      0x01,                              // report num
+      0x00,
+      0x2c, 0x81, 0x58, 0x15, 0x45, 0x14 // host mac
+  };
+
+  f5_reply[2] = g_host_mac[0];
+  f5_reply[3] = g_host_mac[1];
+  f5_reply[4] = g_host_mac[2];
+  f5_reply[5] = g_host_mac[3];
+  f5_reply[6] = g_host_mac[4];
+  f5_reply[7] = g_host_mac[5];
+
+  static SceUdcdDeviceRequest req = {.endpoint         = &endpoints[0],
+                                     .data             = f5_reply,
+                                     .size             = 8,
+                                     .isControlRequest = 0,
+                                     .onComplete       = NULL,
+                                     .transmitted      = 0,
+                                     .returnCode       = 0,
+                                     .next             = NULL,
+                                     .unused           = NULL,
+                                     .physicalAddress  = NULL};
+
+  return ksceUdcdReqSend(&req);
+}
+
+static int sendHidF7Report(uint8_t report_id)
+{
+  // maybe battery level + status?
+  static uint8_t f7_reply[12] __attribute__((aligned(64)))
+  = {
+    0x01, 0x00, 0xFF, 0x02, 0xA6, 0x01, 0xEE, 0xFF, 0x00, 0x02, 0x00, 0x00
+  };
+
+  static SceUdcdDeviceRequest req = {.endpoint         = &endpoints[0],
+                                     .data             = f7_reply,
+                                     .size             = 12,
+                                     .isControlRequest = 0,
+                                     .onComplete       = NULL,
+                                     .transmitted      = 0,
+                                     .returnCode       = 0,
+                                     .next             = NULL,
+                                     .unused           = NULL,
+                                     .physicalAddress  = NULL};
+
+  return ksceUdcdReqSend(&req);
+}
+
+static int sendHidF8Report(uint8_t report_id)
+{
+  // size = 8
+  static uint8_t f8_reply[4] __attribute__((aligned(64))) = {0x00,
+                                                             0x02, // 01 = unpaired, 02 = paired
+                                                             0x00, 0x00};
+
+  static SceUdcdDeviceRequest req = {.endpoint         = &endpoints[0],
+                                     .data             = f8_reply,
+                                     .size             = 4,
+                                     .isControlRequest = 0,
+                                     .onComplete       = NULL,
+                                     .transmitted      = 0,
+                                     .returnCode       = 0,
+                                     .next             = NULL,
+                                     .unused           = NULL,
+                                     .physicalAddress  = NULL};
+
+  return ksceUdcdReqSend(&req);
+}
+
+static uint8_t ef_request = 0xa0;
+
+static int sendHidEFReport(uint8_t report_id)
+{
+  // replies seem to contain acc / gyro calibration data
+  static uint8_t ef_reply_a0[48] __attribute__((aligned(64)))
+  = {
+     0x00, 0xEF, 0x04, 0x00, 0x0B, 0x03, 0x01, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+     0x00, 0x01, 0xFA, 0x01, 0x8C, 0x01, 0xF6, 0x01, 0x7E, 0x01, 0xFB, 0x01, 0x8C, 0x01, 0xFA, 0x00,
+     0x76, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+  };
+
+  static uint8_t ef_reply_b0[48] __attribute__((aligned(64)))
+  = {
+     0x00, 0xEF, 0x04, 0x00, 0x0B, 0x03, 0x01, 0xB0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+     0x00, 0x02, 0x6E, 0x02, 0x60, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+
+  };
+
+  static SceUdcdDeviceRequest req_a0 = {.endpoint         = &endpoints[0],
+                                        .data             = ef_reply_a0,
+                                        .size             = 48,
+                                        .isControlRequest = 0,
+                                        .onComplete       = NULL,
+                                        .transmitted      = 0,
+                                        .returnCode       = 0,
+                                        .next             = NULL,
+                                        .unused           = NULL,
+                                        .physicalAddress  = NULL};
+
+  static SceUdcdDeviceRequest req_b0 = {.endpoint         = &endpoints[0],
+                                        .data             = ef_reply_b0,
+                                        .size             = 48,
+                                        .isControlRequest = 0,
+                                        .onComplete       = NULL,
+                                        .transmitted      = 0,
+                                        .returnCode       = 0,
+                                        .next             = NULL,
+                                        .unused           = NULL,
+                                        .physicalAddress  = NULL};
+  if (ef_request == 0xA0)
+    return ksceUdcdReqSend(&req_a0);
+  else
+    return ksceUdcdReqSend(&req_b0);
+}
+
+static void handleHidReportComplete(SceUdcdDeviceRequest *req)
+{
+  ksceKernelSetEventFlag(g_event_flag_id, EVF_INT_REQ_COMPLETED);
+}
+
 
 static int sendHidReport()
 {
@@ -405,7 +495,7 @@ void usb_ep0_req_recv_on_complete(SceUdcdDeviceRequest *req)
   switch (wValue)
   {
     case 0x03F4: // set operating mode
-      
+      // TODO: 0xB turns gamepad off, but pstv for some reason sends it on init
       break;
     case 0x03F5: // set host mac. e.g. 0x01 0x00 0xF8 0x2F 0xA8 0x68 0x9D 0xCB
       g_host_mac[0] = data[2];
@@ -420,8 +510,10 @@ void usb_ep0_req_recv_on_complete(SceUdcdDeviceRequest *req)
       ef_request = data[6];
       break;
     case 0x0201: // set rumble/leds
-      // data[9] = led mask. ignore everything else?
+      // data[9] = led mask
       g_led_mask = data[9];
+      // getting 0xFF in data[5] should switch gyro to hi-res mode
+      g_high_res_gyro = (data[5] == 0xFF);
       break;
     default:
       break;
@@ -550,7 +642,7 @@ static int processUdcdRequest(int recipient, int arg, SceUdcdEP0DeviceRequest *r
                       sendHidF2Report(report_id, req->wLength);
                       break;
 
-                    case 0xF4: // start device? switch to bt?
+                    case 0xF4: // start device? stop device? switch to bt? 
                       ksceKernelSetEventFlag(g_event_flag_id, EVF_START);
                       break;
 
@@ -895,7 +987,8 @@ uint8_t vividVersion()
 
 void _start() __attribute__((weak, alias("module_start")));
 
-//uint ksceBtGetStatusForTest(int type, void *data, int size);
+// vitasdk has wrong definition
+uint ksceBtGetStatusForTest(int type, void *data, int size);
 
 int module_start(SceSize argc, const void *args)
 {
@@ -919,7 +1012,6 @@ int module_start(SceSize argc, const void *args)
   {
     g_prev_brightness = ksceLcdGetBrightness();
   }
-
 
   g_usb_thread_id = ksceKernelCreateThread("VITAPAD_USB_THREAD", vividUsbThread, 0x3C, 0x1000, 0, 0x10000, 0);
   g_event_flag_id = ksceKernelCreateEventFlag("VIVID_EF", 0, 0, NULL);
