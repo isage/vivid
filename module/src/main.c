@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <taihen.h>
+int module_get_offset(SceUID pid, SceUID modid, int segidx, size_t offset, uintptr_t *addr);
 
 // missing in vitasdk
 int ksceOledDisplayOn(void);
@@ -54,10 +55,13 @@ static uint8_t g_high_res_gyro = 0;
 
 static int g_prev_brightness;
 
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#define MAX(a,b) (((a)>(b))?(a):(b))
+
+int (*ksceCtrlPeekBufferPositive2)(int port, SceCtrlData *pad_data, int count);
 
 static void fillGamepadReport(const SceCtrlData *pad, gamepad_report_t *gamepad)
 {
-
   memset(gamepad, 0, sizeof(gamepad_report_t));
   gamepad->report_id = 1;
 
@@ -69,10 +73,10 @@ static void fillGamepadReport(const SceCtrlData *pad, gamepad_report_t *gamepad)
   if (pad->buttons & SCE_CTRL_SELECT)
     gamepad->buttons1 |= 1 << 0;
 
-  if (g_l3_pressed)
+  if (g_l3_pressed || pad->buttons & SCE_CTRL_L3)
     gamepad->buttons1 |= 1 << 1;
 
-  if (g_r3_pressed)
+  if (g_r3_pressed || pad->buttons & SCE_CTRL_R3)
     gamepad->buttons1 |= 1 << 2;
 
   if (pad->buttons & SCE_CTRL_START)
@@ -102,24 +106,24 @@ static void fillGamepadReport(const SceCtrlData *pad, gamepad_report_t *gamepad)
     gamepad->dpad_left_a = 0xFF;
   }
 
-  if (g_l2_pressed == 1)
+  if (g_l2_pressed == 1 || pad->buttons & SCE_CTRL_L2)
   {
     gamepad->buttons2 |= 1 << 0;
-    gamepad->l2a = g_l2_value;
+    gamepad->l2a = MAX(g_l2_value, pad->lt);
   }
 
-  if (g_r2_pressed == 1)
+  if (g_r2_pressed == 1 || pad->buttons & SCE_CTRL_R2)
   {
     gamepad->buttons2 |= 1 << 1;
-    gamepad->r2a = g_r2_value;
+    gamepad->r2a = MAX(g_r2_value, pad->rt);
   }
 
-  if (pad->buttons & SCE_CTRL_LTRIGGER)
+  if (pad->buttons & SCE_CTRL_L1)
   {
     gamepad->buttons2 |= 1 << 2;
     gamepad->l1a = 0xFF;
   }
-  if (pad->buttons & SCE_CTRL_RTRIGGER)
+  if (pad->buttons & SCE_CTRL_R1)
   {
     gamepad->buttons2 |= 1 << 3;
     gamepad->r1a = 0xFF;
@@ -251,8 +255,15 @@ static int sendInitialHidReport(uint8_t report_id)
   gamepad_report.unk31[9] = 0x9C;
 
   SceCtrlData pad;
+  SceCtrlData pad1;
 
-  ksceCtrlPeekBufferPositive(0, &pad, 1);
+  ksceCtrlPeekBufferPositive2(0, &pad, 1);
+  if (ksceCtrlPeekBufferPositive2(1, &pad1, 1) > 0)
+  {
+    pad.lt = pad1.lt;
+    pad.rt = pad1.rt;
+  }
+
   fillGamepadReport(&pad, &gamepad_report);
   ksceKernelDcacheCleanRange(&gamepad_report, sizeof(gamepad_report));
 
@@ -459,8 +470,15 @@ static int sendHidReport()
 {
   static gamepad_report_t gamepad __attribute__((aligned(64))) = {0};
   SceCtrlData pad;
+  SceCtrlData pad1;
 
-  ksceCtrlPeekBufferPositive(0, &pad, 1);
+  ksceCtrlPeekBufferPositive2(0, &pad, 1);
+  if (ksceCtrlPeekBufferPositive2(1, &pad1, 1) > 0)
+  {
+    pad.lt = pad1.lt;
+    pad.rt = pad1.rt;
+  }
+
   fillGamepadReport(&pad, &gamepad);
   ksceKernelDcacheCleanRange(&gamepad, sizeof(gamepad));
 
@@ -1029,6 +1047,13 @@ int module_start(SceSize argc, const void *args)
   g_my_mac[5] = data[0];
 
   // TODO: read host mac from config
+
+  int res;
+
+  tai_module_info_t tai_info;
+  tai_info.size = sizeof(tai_module_info_t);
+  taiGetModuleInfoForKernel(KERNEL_PID, "SceCtrl", &tai_info);
+  module_get_offset(KERNEL_PID, tai_info.modid, 0, 0x3ef9, (uintptr_t *)&ksceCtrlPeekBufferPositive2);
 
   return SCE_KERNEL_START_SUCCESS;
 }

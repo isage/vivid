@@ -30,6 +30,7 @@ target_link_libraries(${PROJECT_NAME}
   SceOledForDriver_stub_weak
   SceLcdForDriver_stub_weak
   taihenForKernel_stub
+  taihenModuleUtils_stub
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
