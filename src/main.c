@@ -55,7 +55,7 @@ void saveSystemClocks()
   g_arm_clock  = scePowerGetArmClockFrequency();
   g_bus_clock  = scePowerGetBusClockFrequency();
   g_gpu_clock  = scePowerGetGpuClockFrequency();
-  g_xbar_clock = scePowerGetGpuClockFrequency();
+  g_xbar_clock = scePowerGetGpuXbarClockFrequency();
 }
 
 void applySystemClocks(int arm, int bus, int gpu, int gpuXbar)
